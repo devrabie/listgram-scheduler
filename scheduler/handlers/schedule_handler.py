@@ -1,58 +1,70 @@
 import time
-from datetime import datetime
 import pytz
+from datetime import datetime
 from sqlalchemy.orm import Session
 from models.schedule import Schedule
 from models.ext_tim import ExtTim
 from utils.timezones import CITIES
-from utils import telegram_bot  # ستنشئ هذه الوظيفة
+# from utils.telegram_bot import send_message
 
-def get_current_time(city):
-    tz = pytz.timezone(city)
-    now = datetime.now(tz)
+def get_current_time_str(timezone_name):
+    now = datetime.now(pytz.timezone(timezone_name))
     return now.strftime('%H:%M')
 
-def process_schedules(db: Session):
-    post_summaries = []
+def get_day_column(timezone_name):
+    now = datetime.now(pytz.timezone(timezone_name))
+    return now.strftime('%A')  # Sunday, Monday...
+
+def get_bot_post_count(bot_id: str) -> int:
+    # مثال وهمي - استبدله بكود حقيقي لاحتساب عدد المنشورات في قاعدة بيانات البوت
+    return 5
+
+def process_scheduled_posts(db: Session):
     post_logs = []
-    insert_entries = []
+    summary_logs = []
+    insert_records = []
 
     for region, cities in CITIES.items():
         for city in cities:
             timezone_name = f"{region}/{city}"
-            current_time = get_current_time(timezone_name)
+            current_time = get_current_time_str(timezone_name)
+            day_column = get_day_column(timezone_name)
 
-            schedules = db.query(Schedule).filter(
-                Schedule.times == current_time,
-                Schedule.timezone_set == city,
-                getattr(Schedule, datetime.now(pytz.timezone(timezone_name)).strftime('%A')) == '✅'
-            ).all()
+            filters = {
+                Schedule.times: current_time,
+                Schedule.timezone_set: city,
+                getattr(Schedule, day_column): '✅'
+            }
 
-            for s in schedules:
-                clean_cmd = s.command.replace("حزف", "حذف").replace(">", "").replace("<", "")
-                # count = get_bot_db_count(s.idbot)  # تفترض أنك كتبت هذه الوظيفة
-                count = 0  # استبدل هذا بالقيمة الفعلية
-                insert_entries.append(ExtTim(
-                    idbot=s.idbot,
+            schedules = db.query(Schedule).filter(*filters).all()
+
+            for sched in schedules:
+                clean_cmd = sched.command.replace("حزف", "حذف").replace(">", "").replace("<", "")
+                count = get_bot_post_count(sched.idbot)
+
+                insert_records.append(ExtTim(
+                    idbot=sched.idbot,
                     updated_at=int(time.time()) + 70,
                     command=clean_cmd,
                     count=count
                 ))
 
-                if clean_cmd == "نشر":
-                    post_logs.append(f"⏰ {s.command} @{s.botusr} ({count})")
-                else:
-                    post_summaries.append(f"⏰ {s.command} @{s.botusr} ({count})")
+                log_line = f"⏰ {sched.command} @{sched.botusr} ({count})"
 
-    if insert_entries:
-        db.bulk_save_objects(insert_entries)
+                if clean_cmd == "نشر":
+                    post_logs.append(log_line)
+                else:
+                    summary_logs.append(log_line)
+
+    if insert_records:
+        db.add_all(insert_records)
         db.commit()
 
     # if post_logs:
-    #     send_telegram_message(
+    #     send_message(
     #         chat_id="-1001901727110",
     #         text="\n".join(post_logs),
     #         parse_mode="HTML"
     #     )
 
-    return "\n".join(post_summaries)
+    return "\n".join(summary_logs)

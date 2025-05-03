@@ -1,43 +1,36 @@
-# app/core/database.py
 import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-from dotenv import load_dotenv
-
 load_dotenv()
+
+# تعريف القاعدة الأساسية للنماذج
 Base = declarative_base()
 
-class Database:
-    def __init__(self):
-        self.host = '158.220.123.1'
-        self.username = 'Drlistat_bot'
-        self.password = os.getenv('DB_MakerBots')
-        self.database = 'MakerBots'
-        self.engine = None
-        self.SessionLocal = None
+# إعداد بيانات الاتصال بقاعدة البيانات
+DB_HOST = '158.220.123.1'
+DB_USER = 'Drlistat_bot'
+DB_PASSWORD = os.getenv('DB_MakerBots')
+DB_NAME = 'MakerBots'
 
-        self.init_engine()
+DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 
-    def init_engine(self):
-        DATABASE_URL = f"mysql+mysqlconnector://{self.username}:{self.password}@{self.host}/{self.database}"
+# إنشاء المحرك (Engine)
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=10,
+    echo=False  # اجعله True إن أردت طباعة استعلامات SQL
+)
 
-        self.engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=10) # تعيين حجم التجمع والتدفق الزائد
-        self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+# إعداد الجلسة
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    def get_session(self):
-        if not self.SessionLocal:
-            self.init_engine()
-        return self.SessionLocal()
-
-    def close_session(self, session):
-        session.close()
-
+# دالة للحصول على جلسة قاعدة البيانات
 def get_db():
-    db_instance = Database()
-    db = db_instance.get_session()
+    db = SessionLocal()
     try:
         yield db
     finally:
-        db_instance.close_session(db)
+        db.close()

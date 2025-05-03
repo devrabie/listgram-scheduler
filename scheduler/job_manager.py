@@ -1,16 +1,11 @@
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
-from jobs.example_job import run_example_job
-import asyncio
+import time
+from jobs.sandext_job import execute_sandext_job
 
-async def start_scheduler():
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(run_example_job, CronTrigger(minute="*"))  # كل دقيقة
-    scheduler.start()
-    print("Scheduler started. Running...")
-
-    try:
-        await asyncio.Event().wait()  # Keeps the event loop running
-    except (KeyboardInterrupt, SystemExit):
-        pass
-
+def start_scheduler():
+    while True:
+        try:
+            execute_sandext_job()
+            print("تم تنفيذ مهمة Sandext بنجاح.")
+        except Exception as e:
+            print(f"حدث خطأ أثناء تنفيذ مهمة Sandext: {e}")
+        time.sleep(60)  # تنفيذ كل دقيقة
