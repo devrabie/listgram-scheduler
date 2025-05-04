@@ -60,11 +60,4 @@ def process_scheduled_posts(db: Session):
         db.add_all(insert_records)
         db.commit()
 
-    # if post_logs:
-    #     send_message(
-    #         chat_id="-1001901727110",
-    #         text="\n".join(post_logs),
-    #         parse_mode="HTML"
-    #     )
-
     return "\n".join(summary_logs)
